@@ -63,7 +63,7 @@ function MatchesPage() {
     }
   };
 
-  const updateStatus = async (m: any, status: string) => {
+  const updateStatus = async (m: any, status: "accepted" | "rejected" | "completed") => {
     const { error } = await supabase.from("matches").update({ status }).eq("id", m.id);
     if (error) { toast.error(error.message); return; }
     toast.success(`Match ${status}`);
