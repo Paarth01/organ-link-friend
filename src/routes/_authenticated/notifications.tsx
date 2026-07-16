@@ -67,7 +67,7 @@ function NotifPage() {
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">{n.message}</p>
                   {n.link && (
-                    <Link to={n.link} className="mt-2 inline-block text-xs font-medium text-primary hover:underline">Open →</Link>
+                    <a href={n.link} className="mt-2 inline-block text-xs font-medium text-primary hover:underline">Open →</a>
                   )}
                 </div>
               </div>
