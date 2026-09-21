@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/external/client";
 import { useAuth } from "@/hooks/use-auth";
 import { BLOOD_TYPES, ORGANS, URGENCY, organLabel } from "@/lib/organ";
 import { Button } from "@/components/ui/button";

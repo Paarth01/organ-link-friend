@@ -2,7 +2,7 @@ import { Link, useRouter } from "@tanstack/react-router";
 import { HeartPulse, LogOut, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/use-auth";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/external/client";
 import { useEffect, useState } from "react";
 
 export function SiteHeader() {

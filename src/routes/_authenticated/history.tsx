@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/external/client";
 import { organLabel } from "@/lib/organ";
 import { format } from "date-fns";
 import { Activity } from "lucide-react";
