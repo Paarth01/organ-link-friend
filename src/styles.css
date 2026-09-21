@@ -149,15 +149,15 @@
 
 @utility pulse-dot {
   position: relative;
-}
-@utility pulse-dot::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 9999px;
-  background: currentColor;
-  opacity: 0.5;
-  animation: pulse-ring 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 9999px;
+    background: currentColor;
+    opacity: 0.5;
+    animation: pulse-ring 2s cubic-bezier(0, 0, 0.2, 1) infinite;
+  }
 }
 
 @keyframes pulse-ring {
