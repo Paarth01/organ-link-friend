@@ -42,13 +42,16 @@ function AuthPage() {
         const { error } = await supabase.auth.signUp({
           email: parsed.email,
           password: parsed.password,
-          options: {
-            emailRedirectTo: window.location.origin,
-            data: { full_name: parsed.fullName },
-          },
+          options: { data: { full_name: parsed.fullName } },
         });
         if (error) throw error;
-        toast.success("Account created. Signing you in…");
+        // No email confirmation step — sign the user straight in.
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email: parsed.email,
+          password: parsed.password,
+        });
+        if (signInError) throw signInError;
+        toast.success("Welcome to LifeLink!");
         router.navigate({ to: "/dashboard" });
       } else {
         const parsed = signInSchema.parse(form);
