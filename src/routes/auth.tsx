@@ -6,7 +6,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/external/client";
-import { lovable } from "@/integrations/lovable";
 import { z } from "zod";
 
 export const Route = createFileRoute("/auth")({
@@ -73,16 +72,14 @@ function AuthPage() {
 
   const signInGoogle = async () => {
     setLoading(true);
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: `${window.location.origin}/dashboard` },
     });
-    if (result.error) {
-      toast.error(result.error.message);
+    if (error) {
+      toast.error(error.message);
       setLoading(false);
-      return;
     }
-    if (result.redirected) return;
-    router.navigate({ to: "/dashboard" });
   };
 
   return (
