@@ -9,7 +9,23 @@ import { Radio, ArrowRightLeft, Check, X } from "lucide-react";
 import { AiMatchAssistant } from "@/components/ai-match-assistant";
 
 export const Route = createFileRoute("/_authenticated/matches")({
-  head: () => ({ meta: [{ title: "Matches · LifeLink" }] }),
+  head: () => ({
+    meta: [
+      { title: "Matches · LifeLink" },
+      {
+        name: "description",
+        content:
+          "Review compatible donor-recipient pairings, get AI-assisted match suggestions, and move cases from proposal to transplant.",
+      },
+      { property: "og:title", content: "Matches · LifeLink" },
+      {
+        property: "og:description",
+        content: "AI-assisted donor-recipient matching and transplant coordination pipeline.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: MatchesPage,
 });
 
