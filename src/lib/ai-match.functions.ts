@@ -92,7 +92,7 @@ export const suggestMatches = createServerFn({ method: "POST" })
         model: lovable.responses("openai/gpt-6-astra"),
         system: SYSTEM,
         prompt,
-        experimental_output: Output.object({ schema: Result }),
+        output: Output.object({ schema: Result }),
         providerOptions: {
           openai: {
             forceReasoning: true,
@@ -104,7 +104,7 @@ export const suggestMatches = createServerFn({ method: "POST" })
         },
       });
 
-      const output = (await result.experimental_output) as AiMatchResult;
+      const output = (await result.output) as AiMatchResult;
       return {
         summary: output.summary,
         suggestions: (output.suggestions ?? []).slice(0, 5),
