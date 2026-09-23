@@ -35,17 +35,18 @@ function MatchesPage() {
   const [recipients, setRecipients] = useState<any[]>([]);
   const [matches, setMatches] = useState<any[]>([]);
 
+  const load = useCallback(async () => {
+    const [d, r, m] = await Promise.all([
+      supabase.from("donors").select("*").eq("status", "available"),
+      supabase.from("recipients").select("*").eq("status", "waiting"),
+      supabase.from("matches").select("*, donor:donor_id(*), recipient:recipient_id(*)").order("created_at", { ascending: false }),
+    ]);
+    setDonors(d.data ?? []);
+    setRecipients(r.data ?? []);
+    setMatches(m.data ?? []);
+  }, []);
+
   useEffect(() => {
-    const load = async () => {
-      const [d, r, m] = await Promise.all([
-        supabase.from("donors").select("*").eq("status", "available"),
-        supabase.from("recipients").select("*").eq("status", "waiting"),
-        supabase.from("matches").select("*, donor:donor_id(*), recipient:recipient_id(*)").order("created_at", { ascending: false }),
-      ]);
-      setDonors(d.data ?? []);
-      setRecipients(r.data ?? []);
-      setMatches(m.data ?? []);
-    };
     load();
     const ch = supabase.channel("mx")
       .on("postgres_changes", { event: "*", schema: "public", table: "matches" }, load)
