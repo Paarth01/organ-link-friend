@@ -6,9 +6,26 @@ import { isCompatible, organLabel } from "@/lib/organ";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Radio, ArrowRightLeft, Check, X } from "lucide-react";
+import { AiMatchAssistant } from "@/components/ai-match-assistant";
 
 export const Route = createFileRoute("/_authenticated/matches")({
-  head: () => ({ meta: [{ title: "Matches · LifeLink" }] }),
+  head: () => ({
+    meta: [
+      { title: "Matches · LifeLink" },
+      {
+        name: "description",
+        content:
+          "Review compatible donor-recipient pairings, get AI-assisted match suggestions, and move cases from proposal to transplant.",
+      },
+      { property: "og:title", content: "Matches · LifeLink" },
+      {
+        property: "og:description",
+        content: "AI-assisted donor-recipient matching and transplant coordination pipeline.",
+      },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: MatchesPage,
 });
 
@@ -94,6 +111,8 @@ function MatchesPage() {
         <p className="text-sm font-medium uppercase tracking-widest text-accent">Coordination</p>
         <h1 className="mt-1 font-display text-4xl font-semibold tracking-tight">Matches</h1>
       </div>
+
+      <AiMatchAssistant donors={donors} recipients={recipients} onPropose={propose} />
 
       <section className="space-y-4">
         <h2 className="font-display text-2xl font-semibold">Compatible suggestions</h2>
