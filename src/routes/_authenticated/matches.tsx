@@ -6,6 +6,7 @@ import { isCompatible, organLabel } from "@/lib/organ";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Radio, ArrowRightLeft, Check, X } from "lucide-react";
+import { AiMatchAssistant } from "@/components/ai-match-assistant";
 
 export const Route = createFileRoute("/_authenticated/matches")({
   head: () => ({ meta: [{ title: "Matches · LifeLink" }] }),
