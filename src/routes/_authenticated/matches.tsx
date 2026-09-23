@@ -54,7 +54,7 @@ function MatchesPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "recipients" }, load)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, []);
+  }, [load]);
 
   const suggestions = useMemo(() => {
     const proposedPairs = new Set(matches.map((m) => `${m.donor_id}:${m.recipient_id}`));
