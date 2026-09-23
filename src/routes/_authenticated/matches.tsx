@@ -102,19 +102,25 @@ function MatchesPage() {
     setMatches((prev) => [inserted, ...prev.filter((m) => m.id !== inserted.id)]);
     toast.success(`Match proposed: ${donor.full_name} → ${recipient.full_name}`);
 
-    const recipients_to_notify = new Set<string>([user.id]);
-    if (donor.user_id) recipients_to_notify.add(donor.user_id);
-    if (recipient.user_id) recipients_to_notify.add(recipient.user_id);
+    const notification = {
+      title: "New match proposed",
+      message: `${donor.full_name} (${donor.blood_type}, ${organLabel(donor.organ)}) → ${recipient.full_name} (${recipient.blood_type}, ${recipient.urgency}).`,
+      link: "/matches",
+    };
 
-    const { error: notifyError } = await supabase.from("notifications").insert(
-      [...recipients_to_notify].map((uid) => ({
-        user_id: uid,
-        title: "New match proposed",
-        message: `${donor!.full_name} (${donor!.blood_type}, ${organLabel(donor!.organ)}) → ${recipient!.full_name} (${recipient!.blood_type}, ${recipient!.urgency}).`,
-        link: "/matches",
-      })),
+    // Own notification first: it is always permitted, so the bell updates live.
+    const { error: notifyError } = await supabase
+      .from("notifications")
+      .insert({ ...notification, user_id: user.id });
+    if (notifyError) console.error("[matches] own notification insert failed", notifyError);
+
+    // Notifying the other parties only succeeds for admins; ignore a permission error.
+    const others = [donor.user_id, recipient.user_id].filter(
+      (uid): uid is string => !!uid && uid !== user.id,
     );
-    if (notifyError) console.error("[matches] notification insert failed", notifyError);
+    for (const uid of new Set(others)) {
+      await supabase.from("notifications").insert({ ...notification, user_id: uid });
+    }
 
     await load();
   };
