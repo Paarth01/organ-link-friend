@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/external/client";
 import { useAuth } from "@/hooks/use-auth";
 import { isCompatible, organLabel } from "@/lib/organ";
@@ -35,17 +35,18 @@ function MatchesPage() {
   const [recipients, setRecipients] = useState<any[]>([]);
   const [matches, setMatches] = useState<any[]>([]);
 
+  const load = useCallback(async () => {
+    const [d, r, m] = await Promise.all([
+      supabase.from("donors").select("*").eq("status", "available"),
+      supabase.from("recipients").select("*").eq("status", "waiting"),
+      supabase.from("matches").select("*, donor:donor_id(*), recipient:recipient_id(*)").order("created_at", { ascending: false }),
+    ]);
+    setDonors(d.data ?? []);
+    setRecipients(r.data ?? []);
+    setMatches(m.data ?? []);
+  }, []);
+
   useEffect(() => {
-    const load = async () => {
-      const [d, r, m] = await Promise.all([
-        supabase.from("donors").select("*").eq("status", "available"),
-        supabase.from("recipients").select("*").eq("status", "waiting"),
-        supabase.from("matches").select("*, donor:donor_id(*), recipient:recipient_id(*)").order("created_at", { ascending: false }),
-      ]);
-      setDonors(d.data ?? []);
-      setRecipients(r.data ?? []);
-      setMatches(m.data ?? []);
-    };
     load();
     const ch = supabase.channel("mx")
       .on("postgres_changes", { event: "*", schema: "public", table: "matches" }, load)
@@ -53,7 +54,7 @@ function MatchesPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "recipients" }, load)
       .subscribe();
     return () => { supabase.removeChannel(ch); };
-  }, []);
+  }, [load]);
 
   const suggestions = useMemo(() => {
     const proposedPairs = new Set(matches.map((m) => `${m.donor_id}:${m.recipient_id}`));
@@ -67,17 +68,61 @@ function MatchesPage() {
   }, [donors, recipients, matches]);
 
   const propose = async (donorId: string, recipientId: string) => {
-    if (!user) return;
-    const { error } = await supabase.from("matches").insert({ donor_id: donorId, recipient_id: recipientId, created_by: user.id, status: "proposed" });
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Match proposed");
-      // notify donor + recipient owners
-      const donor = donors.find((x) => x.id === donorId);
-      const recip = recipients.find((x) => x.id === recipientId);
-      if (donor?.user_id) await supabase.from("notifications").insert({ user_id: donor.user_id, title: "New match proposed", message: `A potential match has been proposed for ${donor.full_name}.`, link: "/matches" });
-      if (recip?.user_id && recip.user_id !== donor?.user_id) await supabase.from("notifications").insert({ user_id: recip.user_id, title: "New match proposed", message: `A potential donor has been proposed for ${recip.full_name}.`, link: "/matches" });
+    if (!user) {
+      toast.error("Please sign in again to propose a match.");
+      return;
     }
+
+    // Resolve from the loaded lists, or fall back to the database (AI suggestions
+    // may point at records that are no longer in the available/waiting lists).
+    let donor = donors.find((x) => x.id === donorId) ?? null;
+    let recipient = recipients.find((x) => x.id === recipientId) ?? null;
+    if (!donor) donor = (await supabase.from("donors").select("*").eq("id", donorId).maybeSingle()).data;
+    if (!recipient) recipient = (await supabase.from("recipients").select("*").eq("id", recipientId).maybeSingle()).data;
+    if (!donor || !recipient) {
+      toast.error("That donor or recipient no longer exists.");
+      await load();
+      return;
+    }
+
+    const { data: inserted, error } = await supabase
+      .from("matches")
+      .insert({ donor_id: donor.id, recipient_id: recipient.id, created_by: user.id, status: "proposed" })
+      .select("*, donor:donor_id(*), recipient:recipient_id(*)")
+      .single();
+
+    if (error) {
+      if (error.code === "23505") toast.error("That pairing has already been proposed.");
+      else toast.error(error.message || "Could not save the match.");
+      await load();
+      return;
+    }
+
+    // Show it immediately, then reconcile with the database.
+    setMatches((prev) => [inserted, ...prev.filter((m) => m.id !== inserted.id)]);
+    toast.success(`Match proposed: ${donor.full_name} → ${recipient.full_name}`);
+
+    const notification = {
+      title: "New match proposed",
+      message: `${donor.full_name} (${donor.blood_type}, ${organLabel(donor.organ)}) → ${recipient.full_name} (${recipient.blood_type}, ${recipient.urgency}).`,
+      link: "/matches",
+    };
+
+    // Own notification first: it is always permitted, so the bell updates live.
+    const { error: notifyError } = await supabase
+      .from("notifications")
+      .insert({ ...notification, user_id: user.id });
+    if (notifyError) console.error("[matches] own notification insert failed", notifyError);
+
+    // Notifying the other parties only succeeds for admins; ignore a permission error.
+    const others = [donor.user_id, recipient.user_id].filter(
+      (uid): uid is string => !!uid && uid !== user.id,
+    );
+    for (const uid of new Set(others)) {
+      await supabase.from("notifications").insert({ ...notification, user_id: uid });
+    }
+
+    await load();
   };
 
   const updateStatus = async (m: any, status: "accepted" | "rejected" | "completed") => {
