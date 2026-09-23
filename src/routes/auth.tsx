@@ -9,7 +9,17 @@ import { supabase } from "@/integrations/external/client";
 import { z } from "zod";
 
 export const Route = createFileRoute("/auth")({
-  head: () => ({ meta: [{ title: "Sign in · LifeLink" }, { name: "description", content: "Sign in to LifeLink to register as a donor or recipient." }] }),
+  ssr: false,
+  head: () => ({
+    meta: [
+      { title: "Sign in · LifeLink" },
+      { name: "description", content: "Sign in to LifeLink to register as a donor or recipient." },
+      { property: "og:title", content: "Sign in · LifeLink" },
+      { property: "og:description", content: "Sign in to LifeLink to register as a donor or recipient." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
+    ],
+  }),
   component: AuthPage,
 });
 
