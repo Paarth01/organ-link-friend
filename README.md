@@ -71,7 +71,7 @@ The platform is decision-support software: a clinician must always confirm every
 └──────────────┬───────────────────────┬───────────────┘
                │                       │
      Supabase JS client     createServerFn (typed RPC)
-     (realtime + auth)               │
+     (realtime + auth)                 │
                │                       │
 ┌──────────────▼───────────┐   ┌───────▼──────────────────┐
 │  Supabase (Lovable Cloud │   │  Server functions        │
