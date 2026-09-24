@@ -157,7 +157,12 @@ function MatchesPage() {
         <h1 className="mt-1 font-display text-4xl font-semibold tracking-tight">Matches</h1>
       </div>
 
-      <AiMatchAssistant donors={donors} recipients={recipients} onPropose={propose} />
+      <AiMatchAssistant
+        donors={donors}
+        recipients={recipients}
+        excludedPairs={matches.map((m) => `${m.donor_id}:${m.recipient_id}`)}
+        onPropose={propose}
+      />
 
       <section className="space-y-4">
         <h2 className="font-display text-2xl font-semibold">Compatible suggestions</h2>

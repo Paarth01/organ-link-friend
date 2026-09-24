@@ -10,10 +10,11 @@ import { suggestMatches, type AiMatchResult } from "@/lib/ai-match.functions";
 type Props = {
   donors: any[];
   recipients: any[];
+  excludedPairs?: string[];
   onPropose: (donorId: string, recipientId: string) => void;
 };
 
-export function AiMatchAssistant({ donors, recipients, onPropose }: Props) {
+export function AiMatchAssistant({ donors, recipients, excludedPairs = [], onPropose }: Props) {
   const run = useServerFn(suggestMatches);
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
@@ -51,6 +52,7 @@ export function AiMatchAssistant({ donors, recipients, onPropose }: Props) {
             hospital_name: r.hospital_name ?? null,
             status: r.status,
           })),
+          excludedPairs: excludedPairs.slice(0, 1000),
         },
       });
       setResult(res as AiMatchResult);

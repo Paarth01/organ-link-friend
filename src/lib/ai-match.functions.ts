@@ -32,6 +32,7 @@ const Input = z.object({
   caseDescription: z.string().min(10).max(4000),
   donors: z.array(CandidateDonor).max(200),
   recipients: z.array(CandidateRecipient).max(200),
+  excludedPairs: z.array(z.string().max(100)).max(1000).default([]),
 });
 
 const Suggestion = z.object({
@@ -85,7 +86,11 @@ export const suggestMatches = createServerFn({ method: "POST" })
       "",
       "Waiting recipients (JSON):",
       JSON.stringify(data.recipients),
+      "",
+      "Pairings already in the pipeline — never suggest these (donor_id:recipient_id):",
+      JSON.stringify(data.excludedPairs),
     ].join("\n");
+    const excluded = new Set(data.excludedPairs);
 
     try {
       const result = streamText({
@@ -107,7 +112,9 @@ export const suggestMatches = createServerFn({ method: "POST" })
       const output = (await result.output) as AiMatchResult;
       return {
         summary: output.summary,
-        suggestions: (output.suggestions ?? []).slice(0, 5),
+        suggestions: (output.suggestions ?? [])
+          .filter((x) => !excluded.has(`${x.donor_id}:${x.recipient_id}`))
+          .slice(0, 5),
       } satisfies AiMatchResult;
     } catch (error) {
       if (NoObjectGeneratedError.isInstance(error)) {
