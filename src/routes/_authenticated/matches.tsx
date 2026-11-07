@@ -4,9 +4,11 @@ import { supabase } from "@/integrations/external/client";
 import { useAuth } from "@/hooks/use-auth";
 import { isCompatible, organLabel } from "@/lib/organ";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Radio, ArrowRightLeft, Check, X } from "lucide-react";
 import { AiMatchAssistant } from "@/components/ai-match-assistant";
+import { canCompleteMatch, hasAssignedHospital } from "@/lib/match-pipeline";
 
 export const Route = createFileRoute("/_authenticated/matches")({
   head: () => ({
@@ -34,6 +36,7 @@ function MatchesPage() {
   const [donors, setDonors] = useState<any[]>([]);
   const [recipients, setRecipients] = useState<any[]>([]);
   const [matches, setMatches] = useState<any[]>([]);
+  const [hospitalAssignments, setHospitalAssignments] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     const [d, r, m] = await Promise.all([
@@ -125,29 +128,69 @@ function MatchesPage() {
     await load();
   };
 
-  const updateStatus = async (m: any, status: "accepted" | "rejected" | "completed") => {
-    const { error } = await supabase.from("matches").update({ status }).eq("id", m.id);
-    if (error) { toast.error(error.message); return; }
-    toast.success(`Match ${status}`);
-    if (status === "completed" && m.donor && m.recipient) {
-      // Record history + update donor/recipient status
-      await Promise.all([
-        supabase.from("donation_history").insert({
-          match_id: m.id,
-          donor_name: m.donor.full_name,
-          recipient_name: m.recipient.full_name,
-          organ: m.donor.organ,
-          hospital_name: m.recipient.hospital_name ?? m.donor.hospital_name ?? null,
-        }),
-        supabase.from("donors").update({ status: "donated" }).eq("id", m.donor_id),
-        supabase.from("recipients").update({ status: "transplanted" }).eq("id", m.recipient_id),
-      ]);
-    } else if (status === "accepted") {
-      await Promise.all([
-        supabase.from("donors").update({ status: "matched" }).eq("id", m.donor_id),
-        supabase.from("recipients").update({ status: "matched" }).eq("id", m.recipient_id),
-      ]);
+  const confirmMatch = async (m: any) => {
+    const hospital_name = (
+      hospitalAssignments[m.id] ?? m.hospital_name ?? m.recipient?.hospital_name ?? m.donor?.hospital_name ?? ""
+    ).trim();
+    if (!hasAssignedHospital(hospital_name)) {
+      toast.error("Assign a hospital before confirming this match.");
+      return;
     }
+
+    const { data, error } = await supabase
+      .from("matches")
+      .update({ hospital_name, status: "accepted" })
+      .eq("id", m.id)
+      .eq("status", "proposed")
+      .select("id")
+      .maybeSingle();
+    if (error) {
+      toast.error(error.message || "Could not confirm this match.");
+      await load();
+      return;
+    }
+    if (!data) {
+      toast.error("This match has changed. Refresh the list and try again.");
+      await load();
+      return;
+    }
+
+    toast.success(`Match confirmed at ${hospital_name}`);
+    await load();
+  };
+
+  const rejectMatch = async (m: any) => {
+    const { error } = await supabase
+      .from("matches")
+      .update({ status: "rejected" })
+      .eq("id", m.id)
+      .eq("status", "proposed");
+    if (error) {
+      toast.error(error.message || "Could not reject this match.");
+      return;
+    }
+    toast.success("Match rejected");
+    await load();
+  };
+
+  const completeMatch = async (m: any) => {
+    if (!canCompleteMatch(m.status)) return;
+
+    const rpcClient = supabase as unknown as {
+      rpc: (
+        functionName: "complete_match",
+        args: { p_match_id: string },
+      ) => Promise<{ error: { message: string } | null }>;
+    };
+    const { error } = await rpcClient.rpc("complete_match", { p_match_id: m.id });
+    if (error) {
+      toast.error(error.message || "Could not complete this match.");
+      await load();
+      return;
+    }
+
+    toast.success("Transplant completed and added to donation history.");
+    await load();
   };
 
   return (
@@ -212,13 +255,28 @@ function MatchesPage() {
                 <div className="flex items-center gap-2">
                   <MatchBadge status={m.status} />
                   {m.status === "proposed" && (
-                    <>
-                      <Button size="sm" variant="outline" onClick={() => updateStatus(m, "accepted")}><Check className="mr-1 size-3" /> Accept</Button>
-                      <Button size="sm" variant="ghost" onClick={() => updateStatus(m, "rejected")}><X className="mr-1 size-3" /> Reject</Button>
-                    </>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="sr-only" htmlFor={`hospital-${m.id}`}>Assigned hospital</label>
+                      <Input
+                        id={`hospital-${m.id}`}
+                        aria-label={`Assigned hospital for ${m.donor?.full_name ?? "donor"} and ${m.recipient?.full_name ?? "recipient"}`}
+                        className="w-48"
+                        placeholder="Assign hospital"
+                        value={hospitalAssignments[m.id] ?? m.hospital_name ?? m.recipient?.hospital_name ?? m.donor?.hospital_name ?? ""}
+                        onChange={(event) => setHospitalAssignments((current) => ({ ...current, [m.id]: event.target.value }))}
+                      />
+                      <Button size="sm" variant="outline" onClick={() => confirmMatch(m)}><Check className="mr-1 size-3" /> Confirm</Button>
+                      <Button size="sm" variant="ghost" onClick={() => rejectMatch(m)}><X className="mr-1 size-3" /> Reject</Button>
+                    </div>
                   )}
-                  {m.status === "accepted" && (
-                    <Button size="sm" onClick={() => updateStatus(m, "completed")} className="bg-success text-success-foreground hover:opacity-90">Mark completed</Button>
+                  {canCompleteMatch(m.status) && (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <span className="text-sm text-muted-foreground">{m.hospital_name || "Hospital not assigned"}</span>
+                      <Button size="sm" onClick={() => completeMatch(m)} className="bg-success text-success-foreground hover:opacity-90">Mark completed</Button>
+                    </div>
+                  )}
+                  {m.status === "completed" && m.hospital_name && (
+                    <span className="text-sm text-muted-foreground">Completed at {m.hospital_name}</span>
                   )}
                 </div>
               </div>
