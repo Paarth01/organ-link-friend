@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/external/client";
 import { Users, HeartPulse, Radio, Activity, ArrowRight } from "lucide-react";
+import { ACTIVE_MATCH_STATUSES } from "@/lib/match-pipeline";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "Dashboard · LifeLink" }] }),
@@ -17,7 +18,7 @@ function Dashboard() {
       const [d, r, m, h, u] = await Promise.all([
         supabase.from("donors").select("*", { count: "exact", head: true }).eq("status", "available"),
         supabase.from("recipients").select("*", { count: "exact", head: true }).eq("status", "waiting"),
-        supabase.from("matches").select("*", { count: "exact", head: true }),
+        supabase.from("matches").select("*", { count: "exact", head: true }).in("status", [...ACTIVE_MATCH_STATUSES]),
         supabase.from("donation_history").select("*", { count: "exact", head: true }),
         supabase.from("recipients").select("*").eq("urgency", "critical").eq("status", "waiting").limit(5),
       ]);

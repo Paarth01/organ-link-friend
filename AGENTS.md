@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Keep external-project match confirmation, rejection, and completion in authenticated atomic database functions, so status, hospital, and donation-history updates cannot be partially applied.

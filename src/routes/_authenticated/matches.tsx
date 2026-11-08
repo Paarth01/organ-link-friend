@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Radio, ArrowRightLeft, Check, X } from "lucide-react";
 import { AiMatchAssistant } from "@/components/ai-match-assistant";
-import { canCompleteMatch, hasAssignedHospital } from "@/lib/match-pipeline";
+import { canCompleteMatch, canConfirmMatch, hasAssignedHospital } from "@/lib/match-pipeline";
 
 export const Route = createFileRoute("/_authenticated/matches")({
   head: () => ({
@@ -136,21 +136,24 @@ function MatchesPage() {
       toast.error("Assign a hospital before confirming this match.");
       return;
     }
-
-    const { data, error } = await supabase
-      .from("matches")
-      .update({ hospital_name, status: "accepted" })
-      .eq("id", m.id)
-      .eq("status", "proposed")
-      .select("id")
-      .maybeSingle();
-    if (error) {
-      toast.error(error.message || "Could not confirm this match.");
+    if (!canConfirmMatch(m.status, hospital_name, m.donor?.status ?? "", m.recipient?.status ?? "")) {
+      toast.error("This donor or recipient is no longer available for confirmation.");
       await load();
       return;
     }
-    if (!data) {
-      toast.error("This match has changed. Refresh the list and try again.");
+
+    const rpcClient = supabase as unknown as {
+      rpc: (
+        functionName: "confirm_match" | "reject_match",
+        args: { p_match_id: string; p_hospital_name?: string },
+      ) => Promise<{ error: { message: string } | null }>;
+    };
+    const { error } = await rpcClient.rpc("confirm_match", {
+      p_match_id: m.id,
+      p_hospital_name: hospital_name,
+    });
+    if (error) {
+      toast.error(error.message || "Could not confirm this match.");
       await load();
       return;
     }
@@ -160,11 +163,13 @@ function MatchesPage() {
   };
 
   const rejectMatch = async (m: any) => {
-    const { error } = await supabase
-      .from("matches")
-      .update({ status: "rejected" })
-      .eq("id", m.id)
-      .eq("status", "proposed");
+    const rpcClient = supabase as unknown as {
+      rpc: (
+        functionName: "reject_match",
+        args: { p_match_id: string },
+      ) => Promise<{ error: { message: string } | null }>;
+    };
+    const { error } = await rpcClient.rpc("reject_match", { p_match_id: m.id });
     if (error) {
       toast.error(error.message || "Could not reject this match.");
       return;

@@ -40,7 +40,7 @@ The platform is decision-support software: a clinician must always confirm every
 | **Donor registry** | Register and browse donors with organ, blood type, age, city, hospital, and status |
 | **Recipient registry** | Register and browse recipients with organ needed, blood type, urgency level (routine / urgent / critical), and status |
 | **Matching** | Blood-type-aware (ABO) compatibility suggestions against the live registries, excluding pairs already in the pipeline |
-| **Match pipeline** | `Proposed → Accepted → Completed` (or `Rejected`). Accepting a match marks both parties as matched; completing it records a permanent donation-history entry and flips the donor to *donated* and the recipient to *transplanted* |
+| **Match pipeline** | `Proposed → Accepted → Completed` (or `Rejected`). Coordinators assign a hospital before confirmation; completion atomically records donation history and updates donor/recipient statuses. |
 | **AI Match Assistant** | Describe a donor–recipient case in plain language and get ranked, reasoned pairing suggestions with confidence scores, rationale, concerns, and a one-click Propose button |
 | **Notifications** | Real-time in-app notification bell with unread badge — proposals, acceptances, completions, and critical-recipient alerts |
 | **Donation history** | Permanent, auditable log of every completed transplant |
@@ -120,11 +120,15 @@ user_roles (admin · hospital · donor · recipient · user)
 | `user_roles` | Role assignments, one row per (user, role) | `user_id`, `role`, `UNIQUE(user_id, role)` |
 | `donors` | Donor registry entries | `user_id`, `full_name`, `blood_type`, `organ`, `age`, `city`, `hospital`, `status` |
 | `recipients` | Recipient registry entries | `user_id`, `full_name`, `blood_type`, `organ_needed`, `urgency`, `status` |
-| `matches` | One row per proposed pairing | `donor_id`, `recipient_id`, `status`, `created_by`, `UNIQUE(donor_id, recipient_id)` |
+| `matches` | One row per proposed pairing | `donor_id`, `recipient_id`, `hospital_name`, `status`, `created_by`, `UNIQUE(donor_id, recipient_id)` |
 | `notifications` | Per-user in-app notifications | `user_id`, `title`, `body`, `read` |
 | `donation_history` | Permanent record of completed transplants | `match_id`, donor/recipient snapshot, `hospital`, `completed_at` |
 
 Every table has **Row-Level Security enabled** with scoped policies (see [Security Model](#security-model)).
+
+### Match pipeline database upgrade
+
+For the separate database configured by `src/integrations/external/client.ts`, run [`docs/external-supabase-match-pipeline.sql`](docs/external-supabase-match-pipeline.sql) once after the original LifeLink schema. It adds the assigned hospital to matches and creates authenticated, atomic confirmation, rejection, and completion operations. Completion writes one history entry and updates donor/recipient statuses together.
 
 ## Matching Engine
 
